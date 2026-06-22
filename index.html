@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IMAGE FORGE | 16:9 & Favicon Converter</title>
+    <meta name="description" content="16:9画像変換とfavicon一括生成を、ブラウザ内だけで完結できるツールです。">
+    <meta name="theme-color" content="#E60012">
+    <link rel="icon" href="./app-icon.svg" type="image/svg+xml">
+    <link rel="icon" href="./favicon.ico" sizes="any">
+    <link rel="icon" href="./app-icon-32.png" sizes="32x32" type="image/png">
+    <link rel="apple-touch-icon" href="./app-icon-180.png" sizes="180x180">
+    <link rel="manifest" href="./app.webmanifest">
+    
+    <!-- 外部ライブラリとフォントの読み込み -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind カスタム設定 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'pixel': ['"DotGothic16"', 'monospace', 'sans-serif'],
+                    },
+                    colors: {
+                        'fc-red': '#E60012',
+                        'fc-blue': '#005AAB',
+                        'fc-yellow': '#FFCC00',
+                        'fc-bg': '#E4E4E4',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* --------------------------------------
+           1. ベーススタイル（ドットパターンの背景など）
+        --------------------------------------- */
+        body {
+            background-color: #E4E4E4;
+            background-image: radial-gradient(#b0b0b0 2px, transparent 2px);
+            background-size: 24px 24px;
+            overflow-x: hidden;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* --------------------------------------
+           2. レトロUIコンポーネント
+        --------------------------------------- */
+        .panel-retro {
+            border: 4px solid #000;
+            box-shadow: 6px 6px 0px 0px rgba(0,0,0,1);
+            background-color: #fff;
+        }
+        
+        .btn-retro {
+            border: 4px solid #000;
+            box-shadow: 4px 4px 0px 0px rgba(0,0,0,1);
+            transition: all 0.1s steps(2);
+            position: relative;
+            cursor: pointer;
+        }
+        .btn-retro:active {
+            transform: translate(4px, 4px) !important;
+            box-shadow: 0px 0px 0px 0px rgba(0,0,0,1) !important;
+        }
+
+        input[type="checkbox"].chk-retro {
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border: 3px solid #000;
+            background-color: #fff;
+            cursor: pointer;
+            position: relative;
+            outline: none;
+        }
+        input[type="checkbox"].chk-retro:checked::after {
+            content: '';
+            position: absolute;
+            top: 3px; left: 3px;
+            width: 12px; height: 12px;
+            background-color: #E60012;
+        }
+
+        /* 無効時のスタイル */
+        .disabled-retro {
+            background-color: #e5e7eb !important;
+            color: #9ca3af !important;
+            cursor: not-allowed;
+        }
+
+        /* --------------------------------------
+           3. CRTオーバーレイ
+        --------------------------------------- */
+        .crt-ultimate-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            pointer-events: none;
+            box-shadow: 
+                inset 0 0 100px rgba(0,0,0,0.9),
+                inset 0 0 20px rgba(255,255,255,0.1);
+            background: linear-gradient(
+                to bottom,
+                rgba(255,0,0,0.03) 33%, 
+                rgba(0,255,0,0.03) 34%, 
+                rgba(0,0,255,0.03) 66%, 
+                rgba(0,0,0,0.2) 67%
+            );
+            background-size: 100% 4px;
+            mix-blend-mode: hard-light;
+            animation: crt-flicker 0.15s infinite;
+            will-change: background-position, opacity;
+        }
+        @keyframes crt-flicker {
+            0% { background-position: 0 0; opacity: 0.95; }
+            50% { background-position: 0 1px; opacity: 1.0; }
+            100% { background-position: 0 0; opacity: 0.95; }
+        }
+
+        /* --------------------------------------
+           4. Game-feel エフェクト群
+        --------------------------------------- */
+        .hit-flash-overlay {
+            position: fixed; 
+            inset: 0; 
+            background-color: #fff;
+            z-index: 9999; 
+            pointer-events: none; 
+            opacity: 0;
+            will-change: opacity;
+        }
+        .hit-flash-active {
+            animation: nes-hit-flash 0.05s steps(2, start);
+        }
+        @keyframes nes-hit-flash {
+            0% { opacity: 0.9; }
+            100% { opacity: 0; }
+        }
+
+        .shake-active {
+            animation: crt-screen-shake 0.15s steps(4) forwards;
+            will-change: transform;
+        }
+        @keyframes crt-screen-shake {
+            0%   { transform: translate3d(0, 0, 0); }
+            20%  { transform: translate3d(-4px, 3px, 0); }
+            40%  { transform: translate3d(4px, -2px, 0); }
+            60%  { transform: translate3d(-2px, -4px, 0); }
+            80%  { transform: translate3d(2px, 2px, 0); }
+            100% { transform: translate3d(0, 0, 0); }
+        }
+
+        .score-pop {
+            position: absolute; 
+            top: 50%; left: 50%;
+            color: #FFCC00; 
+            font-size: 1.5rem; 
+            font-weight: bold;
+            text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
+            pointer-events: none; 
+            z-index: 10;
+            will-change: transform, opacity;
+            animation: score-pop-anim 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes score-pop-anim {
+            0%   { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+            30%  { transform: translate(-50%, -100%) scale(1.2); opacity: 1; }
+            100% { transform: translate(-50%, -120%) scale(1); opacity: 0; }
+        }
+
+        /* --------------------------------------
+           5. ユーティリティ
+        --------------------------------------- */
+        .blink-retro {
+            animation: nes-blink-30f 1s steps(2, start) infinite;
+        }
+        @keyframes nes-blink-30f {
+            0%   { opacity: 1; }
+            50%  { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        .dragover { 
+            background-color: #ffffcc !important; 
+            border-color: #E60012 !important; 
+            border-style: solid !important; 
+        }
+        .sortable-ghost { 
+            opacity: 0.5; 
+            filter: grayscale(100%); 
+            background-color: #000; 
+        }
+        .drag-handle { 
+            cursor: grab; 
+            background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.1) 10px, rgba(255,255,255,0.1) 20px); 
+        }
+        .drag-handle:active { 
+            cursor: grabbing; 
+        }
+        .pixelated-img { 
+            image-rendering: pixelated; 
+        }
+
+
+        /* --------------------------------------
+           6. ツール切り替え / favicon pack
+        --------------------------------------- */
+        .tool-tab {
+            border: 4px solid #000;
+            background: #fff;
+            color: #000;
+            box-shadow: 4px 4px 0 #000;
+            transition: transform 0.1s steps(2), box-shadow 0.1s steps(2), background-color 0.1s steps(2);
+        }
+        .tool-tab:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 #000; }
+        .tool-tab:active { transform: translate(4px, 4px); box-shadow: 0 0 0 #000; }
+        .tool-tab.is-active { background: #000; color: #fff; }
+        .tool-panel[hidden] { display: none !important; }
+        .favicon-drop-ready { background-color: #fff8cc !important; }
+        .code-retro {
+            width: 100%;
+            min-height: 15rem;
+            resize: vertical;
+            border: 4px solid #000;
+            background: #111;
+            color: #fff;
+            padding: 1rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.82rem;
+            line-height: 1.6;
+        }
+        .file-chip {
+            border: 2px solid #000;
+            background: #fff;
+            padding: 0.35rem 0.55rem;
+            display: inline-block;
+            box-shadow: 2px 2px 0 #000;
+        }
+    </style>
+</head>
+<body class="font-pixel text-black py-10 px-4 min-h-screen">
+
+    <!-- CRT & Hit Flash -->
+    <div class="crt-ultimate-overlay"></div>
+    <div id="hit-flash" class="hit-flash-overlay"></div>
+
+    <!-- メインコンテンツ -->
+    <div class="max-w-5xl mx-auto relative z-10">
+        
+        <!-- ヘッダー -->
+        <header class="panel-retro p-8 text-center mb-10 relative overflow-hidden bg-white">
+            <div class="absolute top-2 left-2 w-4 h-4 bg-fc-red border-2 border-black"></div>
+            <div class="absolute top-2 right-2 w-4 h-4 bg-fc-blue border-2 border-black"></div>
+            <div class="absolute bottom-2 left-2 w-4 h-4 bg-fc-yellow border-2 border-black"></div>
+            <div class="absolute bottom-2 right-2 w-4 h-4 bg-green-500 border-2 border-black"></div>
+
+            <h1 class="text-4xl md:text-5xl font-bold text-black mb-4 tracking-widest drop-shadow-[2px_2px_0_rgba(255,255,255,1)]">
+                IMAGE FORGE
+            </h1>
+            <p class="text-lg font-bold mb-6 bg-black text-white inline-block px-4 py-1 blink-retro">
+                ▶ 16:9 IMAGE / FAVICON PACK
+            </p>
+            
+            <div class="inline-block text-left bg-gray-100 p-4 border-4 border-black border-dashed">
+                <p class="mb-2 text-fc-red font-bold text-xl">【 SYSTEM REQUIREMENTS 】</p>
+                <ul class="space-y-2 font-bold text-lg">
+                    <li>▶ PNG・JPG変換 / サイズ(px・KB)調整</li>
+                    <li>▶ 16:9余白補正 (JPG=白 / PNG=透過)</li>
+                    <li>▶ favicon.ico・PWA icon・設置タグを一括生成</li>
+                </ul>
+            </div>
+        </header>
+
+        <!-- ツール切り替え -->
+        <nav class="panel-retro mb-8 p-4 bg-white" aria-label="ツールの切り替え">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button type="button" class="tool-tab is-active px-5 py-4 font-bold text-xl text-left" data-tool="image" aria-pressed="true">
+                    <span class="block text-sm mb-1 opacity-80">TOOL 01</span>
+                    16:9 IMAGE CONVERTER
+                </button>
+                <button type="button" class="tool-tab px-5 py-4 font-bold text-xl text-left" data-tool="favicon" aria-pressed="false">
+                    <span class="block text-sm mb-1 opacity-80">TOOL 02</span>
+                    FAVICON PACK GENERATOR
+                </button>
+            </div>
+        </nav>
+
+        <section id="image-converter-panel" class="tool-panel">
+        <!-- ★ NEW: 詳細オプション設定 -->
+        <div class="panel-retro p-6 mb-8 bg-white flex flex-col gap-6">
+            <!-- チェックボックス群 -->
+            <div class="flex flex-col sm:flex-row gap-6 justify-center items-center border-b-4 border-black pb-6 border-dashed">
+                <label class="flex items-center cursor-pointer group hover:bg-gray-100 p-2 border-2 border-transparent hover:border-black transition-colors">
+                    <input type="checkbox" id="keep-aspect-checkbox" class="chk-retro">
+                    <span class="ml-3 font-bold text-lg pt-1 select-none">サイズ比をそのままにする(16:9にしない)</span>
+                </label>
+                <label class="flex items-center cursor-pointer group hover:bg-gray-100 p-2 border-2 border-transparent hover:border-black transition-colors">
+                    <input type="checkbox" id="keep-filename-checkbox" class="chk-retro">
+                    <span class="ml-3 font-bold text-lg pt-1 select-none">ファイル名を元のままにする</span>
+                </label>
+            </div>
+            
+            <!-- 数値・形式指定群 -->
+            <div class="flex flex-wrap gap-6 justify-center items-center">
+                <div class="flex items-center gap-2">
+                    <span class="font-bold text-lg select-none">形式:</span>
+                    <select id="format-select" class="border-4 border-black p-2 font-pixel text-lg focus:bg-yellow-50 outline-none cursor-pointer">
+                        <option value="jpeg">JPG (白背景)</option>
+                        <option value="png">PNG (透過背景)</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="font-bold text-lg select-none">出力幅(px):</span>
+                    <input type="number" id="target-width" placeholder="自動" min="1" class="border-4 border-black p-2 w-28 font-pixel text-lg focus:bg-yellow-50 outline-none text-center">
+                </div>
+                <div class="flex items-center gap-2 relative group" id="size-limit-container">
+                    <span class="font-bold text-lg select-none">最大(KB):</span>
+                    <input type="number" id="target-size" placeholder="制限なし" min="1" class="border-4 border-black p-2 w-32 font-pixel text-lg focus:bg-yellow-50 outline-none text-center transition-colors">
+                    <!-- ツールチップ風エラーメッセージ -->
+                    <span id="png-size-warning" class="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs p-2 hidden whitespace-nowrap">
+                        PNGはサイズ指定できません
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ドラッグ＆ドロップエリア -->
+        <div id="drop-zone" class="w-full bg-white border-[6px] border-dashed border-black p-12 text-center hover:bg-blue-50 transition-colors cursor-pointer flex flex-col items-center justify-center panel-retro relative group overflow-hidden">
+            <div class="text-6xl mb-4 transform group-hover:scale-110 transition-transform steps(2)">📁</div>
+            <p class="text-2xl font-bold text-black mb-2 select-none">ここに画像をドロップ</p>
+            <p class="text-lg font-bold text-gray-600 select-none">またはクリックしてえらぶ</p>
+            <input type="file" id="file-input" multiple accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+        </div>
+
+        <!-- エラー領域 -->
+        <div id="error-message" class="hidden mt-6 p-4 bg-red-100 text-fc-red font-bold text-xl border-4 border-black text-center panel-retro"></div>
+
+        <!-- 結果表示エリア -->
+        <div id="result-area" class="hidden mt-12">
+            <!-- ツールバー -->
+            <div class="flex flex-col sm:flex-row justify-between items-end mb-6 gap-4 border-b-4 border-black pb-4">
+                <h2 class="text-3xl font-bold text-black bg-fc-yellow px-4 py-1 border-4 border-black inline-block transform -rotate-2 select-none shadow-[2px_2px_0_#000]">
+                    STAGE CLEARED!
+                </h2>
+                <div class="flex gap-4">
+                    <button id="clear-btn" class="px-6 py-3 bg-white text-black font-bold text-lg btn-retro select-none">
+                        リセット
+                    </button>
+                    <button id="download-all-btn" class="px-6 py-3 bg-fc-blue text-white font-bold text-lg btn-retro flex items-center select-none">
+                        <span class="mr-2 text-xl">💾</span> ZIPでダウンロード
+                    </button>
+                </div>
+            </div>
+
+            <!-- 連番リネーム -->
+            <div class="panel-retro p-4 mb-8 flex flex-col sm:flex-row items-center gap-4 bg-gray-100">
+                <div class="font-bold text-black text-xl whitespace-nowrap select-none">
+                    ▶ 一括リネーム
+                </div>
+                <input type="text" id="common-name-input" placeholder="共通名 (例: photo)" class="flex-grow w-full sm:w-auto px-4 py-3 border-4 border-black focus:outline-none focus:bg-yellow-50 font-pixel text-lg">
+                <button id="rename-btn" class="w-full sm:w-auto px-6 py-3 bg-fc-red text-white font-bold text-lg btn-retro whitespace-nowrap select-none">
+                    連番をつける
+                </button>
+            </div>
+            
+            <!-- 画像グリッド -->
+            <div id="image-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+        </div>
+        </section>
+
+        <!-- favicon一括生成 -->
+        <section id="favicon-converter-panel" class="tool-panel" hidden>
+            <div class="panel-retro p-6 mb-8 bg-white">
+                <div class="flex flex-col lg:flex-row gap-6 lg:items-end justify-between">
+                    <div>
+                        <p class="font-bold text-fc-red text-xl mb-2">【 FAVICON PACK 】</p>
+                        <h2 class="text-3xl font-bold mb-2">1枚の画像から、公開用アイコン一式を生成</h2>
+                        <p class="font-bold leading-relaxed">favicon.ico / PNG各サイズ / Apple Touch Icon / Android・PWA用manifest / 設置タグをZIPでまとめます。</p>
+                    </div>
+                    <div class="bg-gray-100 border-4 border-black border-dashed px-4 py-3 font-bold text-sm leading-relaxed">
+                        推奨: 512px以上・正方形・主役が中央<br>
+                        文字は小さくすると潰れやすいので、記号・マーク中心が強い
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mt-6 pt-6 border-t-4 border-dashed border-black">
+                    <label class="flex flex-col gap-2 font-bold text-lg">
+                        <span>アプリ・サイト名</span>
+                        <input id="favicon-app-name" type="text" value="My App" maxlength="60" class="border-4 border-black p-3 font-pixel text-base focus:bg-yellow-50 outline-none">
+                    </label>
+                    <label class="flex flex-col gap-2 font-bold text-lg">
+                        <span>テーマカラー</span>
+                        <input id="favicon-theme-color" type="color" value="#E60012" class="w-full h-[54px] border-4 border-black cursor-pointer bg-white p-1">
+                    </label>
+                    <label class="flex flex-col gap-2 font-bold text-lg">
+                        <span>正方形への整え方</span>
+                        <select id="favicon-fit-mode" class="border-4 border-black p-3 font-pixel text-base focus:bg-yellow-50 outline-none cursor-pointer">
+                            <option value="crop">中央を正方形にトリミング</option>
+                            <option value="contain">全体を表示（余白は透過）</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+
+            <div id="favicon-drop-zone" class="w-full bg-white border-[6px] border-dashed border-black p-12 text-center hover:bg-red-50 transition-colors cursor-pointer flex flex-col items-center justify-center panel-retro relative group overflow-hidden">
+                <div class="text-6xl mb-4 transform group-hover:scale-110 transition-transform steps(2)">🧩</div>
+                <p class="text-2xl font-bold text-black mb-2 select-none">faviconの元画像をドロップ</p>
+                <p class="text-lg font-bold text-gray-600 select-none">またはクリックして1枚えらぶ</p>
+                <input type="file" id="favicon-file-input" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+            </div>
+
+            <div id="favicon-source-area" class="hidden mt-8 panel-retro p-6 bg-white">
+                <div class="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-6 items-center">
+                    <div class="aspect-square border-4 border-black p-3 bg-gray-100" style="background-image: repeating-linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc), repeating-linear-gradient(45deg, #ccc 25%, #fff 25%, #fff 75%, #ccc 75%, #ccc); background-position: 0 0, 10px 10px; background-size: 20px 20px;">
+                        <img id="favicon-source-preview" src="" alt="選択した元画像のプレビュー" class="w-full h-full object-contain pixelated-img">
+                    </div>
+                    <div>
+                        <p class="font-bold text-fc-red text-xl mb-2">SOURCE READY!</p>
+                        <p id="favicon-source-info" class="font-bold text-lg leading-relaxed mb-5"></p>
+                        <button id="generate-favicon-btn" type="button" class="px-7 py-4 bg-fc-red text-white font-bold text-xl btn-retro">⚙ FAVICON PACKを生成</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="favicon-error-message" class="hidden mt-6 p-4 bg-red-100 text-fc-red font-bold text-xl border-4 border-black text-center panel-retro"></div>
+
+            <div id="favicon-result-area" class="hidden mt-10">
+                <div class="panel-retro p-6 bg-white">
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b-4 border-dashed border-black pb-6 mb-6">
+                        <div>
+                            <p class="font-bold text-fc-red text-xl mb-1">STAGE CLEARED!</p>
+                            <h2 class="text-3xl font-bold">FAVICON PACK READY</h2>
+                        </div>
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <button id="copy-favicon-tags-btn" type="button" class="px-6 py-3 bg-white text-black font-bold text-lg btn-retro">タグをコピー</button>
+                            <button id="download-favicon-pack-btn" type="button" class="px-6 py-3 bg-fc-blue text-white font-bold text-lg btn-retro">💾 ZIPでダウンロード</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-[180px_1fr] gap-6 items-start mb-8">
+                        <div class="aspect-square border-4 border-black p-3 bg-gray-100" style="background-image: repeating-linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc), repeating-linear-gradient(45deg, #ccc 25%, #fff 25%, #fff 75%, #ccc 75%, #ccc); background-position: 0 0, 10px 10px; background-size: 20px 20px;">
+                            <img id="favicon-output-preview" src="" alt="生成したfaviconのプレビュー" class="w-full h-full object-contain pixelated-img">
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-xl mb-3">このZIPに入るもの</h3>
+                            <div id="favicon-file-list" class="flex flex-wrap gap-3"></div>
+                            <p class="font-bold text-sm mt-5 leading-relaxed">公開先では、ZIPを解凍して <code class="bg-yellow-100 px-1 border border-black">index.html</code> と同じ階層（Vercelならプロジェクトのルート）に配置。<br>その後、下のタグを対象ページの <code class="bg-yellow-100 px-1 border border-black">&lt;head&gt;</code> に貼り付けます。</p>
+                        </div>
+                    </div>
+
+                    <label class="block font-bold text-xl mb-3" for="favicon-head-code">設置用タグ</label>
+                    <textarea id="favicon-head-code" class="code-retro" readonly spellcheck="false"></textarea>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        let processedImages = [];
+
+        // DOM要素
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const resultArea = document.getElementById('result-area');
+        const imageGrid = document.getElementById('image-grid');
+        const downloadAllBtn = document.getElementById('download-all-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const errorMessage = document.getElementById('error-message');
+        
+        const keepAspectCheckbox = document.getElementById('keep-aspect-checkbox');
+        const keepFilenameCheckbox = document.getElementById('keep-filename-checkbox');
+        const formatSelect = document.getElementById('format-select');
+        const targetWidthInput = document.getElementById('target-width');
+        const targetSizeInput = document.getElementById('target-size');
+        const pngSizeWarning = document.getElementById('png-size-warning');
+        
+        const renameBtn = document.getElementById('rename-btn');
+        const commonNameInput = document.getElementById('common-name-input');
+        const hitFlash = document.getElementById('hit-flash');
+        const toolTabs = document.querySelectorAll('[data-tool]');
+        const imageConverterPanel = document.getElementById('image-converter-panel');
+        const faviconConverterPanel = document.getElementById('favicon-converter-panel');
+
+        // フォーマット選択時の UI 制御 (PNG時はサイズ指定不可)
+        formatSelect.addEventListener('change', () => {
+            if (formatSelect.value === 'png') {
+                targetSizeInput.disabled = true;
+                targetSizeInput.classList.add('disabled-retro');
+                pngSizeWarning.classList.remove('hidden');
+            } else {
+                targetSizeInput.disabled = false;
+                targetSizeInput.classList.remove('disabled-retro');
+                pngSizeWarning.classList.add('hidden');
+            }
+        });
+
+        const generateId = () => Math.random().toString(36).substr(2, 9);
+
+        // --- Game-feel トリガー ---
+        function triggerShake(element) {
+            element.classList.remove('shake-active');
+            void element.offsetWidth;
+            element.classList.add('shake-active');
+        }
+
+        function triggerHitFlash() {
+            hitFlash.classList.remove('hit-flash-active');
+            void hitFlash.offsetWidth;
+            hitFlash.classList.add('hit-flash-active');
+        }
+
+        // --- ファイル名生成 ---
+        function generateRandomFileName() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+            let result = '';
+            for (let i = 0; i < 20; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        function getOutputFileName(originalName, ext) {
+            if (keepFilenameCheckbox.checked) {
+                const lastDotIndex = originalName.lastIndexOf('.');
+                return lastDotIndex === -1 ? originalName + ext : originalName.substring(0, lastDotIndex) + ext;
+            } else {
+                return generateRandomFileName() + ext;
+            }
+        }
+
+        // --- 画像処理コアロジック ---
+        function processImage(file) {
+            return new Promise((resolve, reject) => {
+                if (!file.type.startsWith('image/')) {
+                    reject(new Error('画像以外が含まれていました: ' + file.name));
+                    return;
+                }
+
+                const img = new Image();
+                const url = URL.createObjectURL(file);
+
+                img.onload = () => {
+                    URL.revokeObjectURL(url);
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    const targetFormat = formatSelect.value;
+                    const ext = targetFormat === 'jpeg' ? '.jpg' : '.png';
+                    const tWidth = parseInt(targetWidthInput.value);
+                    const tSizeKB = parseFloat(targetSizeInput.value);
+
+                    const targetRatio = 16 / 9;
+                    const imgRatio = img.width / img.height;
+                    let cWidth, cHeight;
+
+                    // ① キャンバスサイズ (出力ピクセル数) の決定
+                    if (tWidth > 0) {
+                        cWidth = tWidth;
+                        cHeight = keepAspectCheckbox.checked 
+                            ? Math.round(cWidth / imgRatio) 
+                            : Math.round(cWidth / targetRatio);
+                    } else {
+                        // 幅指定なし時はオリジナル基準
+                        if (keepAspectCheckbox.checked) {
+                            cWidth = img.width; 
+                            cHeight = img.height;
+                        } else {
+                            if (imgRatio <= targetRatio) {
+                                cHeight = img.height; 
+                                cWidth = Math.round(cHeight * targetRatio);
+                            } else {
+                                cWidth = img.width; 
+                                cHeight = Math.round(cWidth / targetRatio);
+                            }
+                        }
+                    }
+
+                    canvas.width = cWidth; 
+                    canvas.height = cHeight;
+                    
+                    // ② 背景の処理 (JPGは白、PNGは透明)
+                    if (targetFormat === 'jpeg') {
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    } else {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    }
+
+                    // ③ 画像のスケーリング描画
+                    let drawWidth, drawHeight;
+                    if (keepAspectCheckbox.checked) {
+                        drawWidth = cWidth;
+                        drawHeight = cHeight;
+                    } else {
+                        const cRatio = cWidth / cHeight;
+                        if (imgRatio <= cRatio) {
+                            drawHeight = cHeight;
+                            drawWidth = drawHeight * imgRatio;
+                        } else {
+                            drawWidth = cWidth;
+                            drawHeight = drawWidth / imgRatio;
+                        }
+                    }
+                    const dx = (cWidth - drawWidth) / 2;
+                    const dy = (cHeight - drawHeight) / 2;
+                    ctx.drawImage(img, dx, dy, drawWidth, drawHeight);
+
+                    // ④ エンコードとファイルサイズ調整 (JPGのみ)
+                    let dataUrl;
+                    if (targetFormat === 'jpeg' && tSizeKB > 0) {
+                        const targetBytes = tSizeKB * 1024;
+                        let quality = 0.9;
+                        let minQ = 0.05, maxQ = 1.0;
+                        
+                        dataUrl = canvas.toDataURL('image/jpeg', quality);
+                        let bytes = Math.round((dataUrl.split(',')[1].length * 3) / 4);
+                        
+                        // 簡易二分探索で目標サイズに寄せる
+                        let attempts = 0;
+                        while (bytes > targetBytes && attempts < 6) {
+                            maxQ = quality;
+                            quality = (minQ + maxQ) / 2;
+                            dataUrl = canvas.toDataURL('image/jpeg', quality);
+                            bytes = Math.round((dataUrl.split(',')[1].length * 3) / 4);
+                            attempts++;
+                        }
+                        if (bytes > targetBytes) dataUrl = canvas.toDataURL('image/jpeg', 0.05); // 最低画質
+                    } else {
+                        dataUrl = canvas.toDataURL(`image/${targetFormat}`, targetFormat === 'jpeg' ? 0.9 : undefined);
+                    }
+
+                    const fileName = getOutputFileName(file.name, ext);
+                    const base64str = dataUrl.split(',')[1];
+                    const bytesResult = Math.round((base64str.length * 3) / 4);
+                    const fileSizeStr = bytesResult < 1024 * 1024 
+                        ? (bytesResult / 1024).toFixed(1) + ' KB' 
+                        : (bytesResult / (1024 * 1024)).toFixed(2) + ' MB';
+
+                    resolve({ 
+                        id: generateId(), 
+                        dataUrl, 
+                        fileName, 
+                        originalName: file.name, 
+                        fileSizeStr, 
+                        dimensionsStr: `${cWidth} × ${cHeight} px`,
+                        ext: ext
+                    });
+                };
+                img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('読込失敗: ' + file.name)); };
+                img.src = url;
+            });
+        }
+
+        // --- DOM生成 ---
+        function addImageCard(imageData) {
+            const card = document.createElement('div');
+            card.className = 'panel-retro flex flex-col bg-white';
+            card.dataset.id = imageData.id; 
+            
+            // 背景透過（PNG）対応のため、市松模様（チェッカーボード）を背景に敷く
+            const checkerBg = `background-image: repeating-linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc), repeating-linear-gradient(45deg, #ccc 25%, #fff 25%, #fff 75%, #ccc 75%, #ccc); background-position: 0 0, 8px 8px; background-size: 16px 16px;`;
+
+            card.innerHTML = `
+                <div class="p-2 bg-black text-white text-center text-sm drag-handle flex items-center justify-center hover:bg-gray-800 transition-colors border-b-4 border-black select-none">
+                    <span class="font-bold tracking-widest">≡ DRAG TO MOVE ≡</span>
+                </div>
+                <div class="img-container aspect-video relative overflow-hidden flex items-center justify-center border-b-4 border-black pointer-events-none p-2" style="${checkerBg}">
+                    <img src="${imageData.dataUrl}" alt="${imageData.fileName}" class="w-full h-full object-contain border-2 border-dashed border-gray-500 pixelated-img">
+                </div>
+                <div class="p-4 flex-grow flex flex-col justify-between bg-white">
+                    <div>
+                        <p class="text-sm text-gray-500 mb-1 line-clamp-1 font-bold">元: ${imageData.originalName}</p>
+                        <p class="text-base font-bold text-black mb-3 break-all filename-display bg-yellow-100 px-2 py-1 border-2 border-black inline-block">${imageData.fileName}</p>
+                        <div class="flex flex-col gap-1 text-sm font-bold text-black mb-4 border-t-2 border-dashed border-black pt-3">
+                            <span>SIZE: ${imageData.dimensionsStr}</span>
+                            <span>FILE: ${imageData.fileSizeStr}</span>
+                        </div>
+                    </div>
+                    <a href="${imageData.dataUrl}" download="${imageData.fileName}" class="download-link w-full block text-center py-2 bg-fc-yellow text-black font-bold text-lg btn-retro mt-2">
+                        ⬇ DL
+                    </a>
+                </div>
+            `;
+            imageGrid.appendChild(card);
+
+            const pop = document.createElement('div');
+            pop.className = 'score-pop font-pixel';
+            pop.textContent = 'CONVERTED!';
+            card.querySelector('.img-container').appendChild(pop);
+            setTimeout(() => pop.remove(), 800);
+        }
+
+        new Sortable(imageGrid, { animation: 0, handle: '.drag-handle', ghostClass: 'sortable-ghost' });
+
+        // --- イベントリスナー ---
+        async function handleFiles(files) {
+            if (files.length === 0) return;
+            triggerHitFlash();
+            errorMessage.classList.add('hidden');
+            resultArea.classList.remove('hidden');
+
+            const errors = [];
+            for (const file of files) {
+                try {
+                    const result = await processImage(file);
+                    processedImages.push(result);
+                    addImageCard(result);
+                } catch (error) {
+                    errors.push(error.message);
+                }
+            }
+
+            if (errors.length > 0) {
+                errorMessage.innerHTML = errors.join('<br>');
+                errorMessage.classList.remove('hidden');
+            }
+            if (processedImages.length === 0) resultArea.classList.add('hidden');
+        }
+
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            triggerShake(dropZone);
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => { handleFiles(e.target.files); fileInput.value = ''; });
+
+        renameBtn.addEventListener('click', function() {
+            triggerShake(this);
+            const commonName = commonNameInput.value.trim();
+            if (!commonName) { alert('共通名を入力してください'); commonNameInput.focus(); return; }
+
+            const cards = Array.from(imageGrid.querySelectorAll('[data-id]'));
+            if (cards.length === 0) return;
+
+            const padLength = Math.max(2, String(cards.length).length);
+            cards.forEach((card, index) => {
+                const imgData = processedImages.find(img => img.id === card.dataset.id);
+                if (!imgData) return;
+                const newFileName = `${commonName}_${String(index + 1).padStart(padLength, '0')}${imgData.ext}`;
+                imgData.fileName = newFileName;
+                card.querySelector('.filename-display').textContent = newFileName;
+                card.querySelector('.download-link').setAttribute('download', newFileName);
+            });
+        });
+
+        downloadAllBtn.addEventListener('click', async function() {
+            triggerShake(this);
+            if (processedImages.length === 0) return;
+            
+            const btnOriginalText = this.innerHTML;
+            this.innerHTML = '<span class="blink-retro">処理中...</span>';
+            this.disabled = true;
+
+            try {
+                const zip = new JSZip();
+                const cards = imageGrid.querySelectorAll('[data-id]');
+                cards.forEach(card => {
+                    const img = processedImages.find(i => i.id === card.dataset.id);
+                    if (img) zip.file(img.fileName, img.dataUrl.split(',')[1], { base64: true });
+                });
+                const content = await zip.generateAsync({ type: "blob" });
+                const url = URL.createObjectURL(content);
+                const a = document.createElement("a");
+                a.href = url; a.download = `images_${new Date().getTime()}.zip`;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+            } catch (error) {
+                alert('ZIP作成に失敗しました');
+            } finally {
+                this.innerHTML = btnOriginalText;
+                this.disabled = false;
+            }
+        });
+
+        clearBtn.addEventListener('click', function() {
+            triggerShake(this);
+            processedImages = [];
+            imageGrid.innerHTML = '';
+            commonNameInput.value = '';
+            resultArea.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+        });
+
+
+        // ======================================
+        // FAVICON PACK GENERATOR
+        // ======================================
+        let faviconSource = null;
+        let faviconPackageFiles = [];
+        let faviconHeadSnippet = '';
+
+        const faviconDropZone = document.getElementById('favicon-drop-zone');
+        const faviconFileInput = document.getElementById('favicon-file-input');
+        const faviconSourceArea = document.getElementById('favicon-source-area');
+        const faviconSourcePreview = document.getElementById('favicon-source-preview');
+        const faviconSourceInfo = document.getElementById('favicon-source-info');
+        const faviconAppNameInput = document.getElementById('favicon-app-name');
+        const faviconThemeColorInput = document.getElementById('favicon-theme-color');
+        const faviconFitMode = document.getElementById('favicon-fit-mode');
+        const generateFaviconBtn = document.getElementById('generate-favicon-btn');
+        const faviconErrorMessage = document.getElementById('favicon-error-message');
+        const faviconResultArea = document.getElementById('favicon-result-area');
+        const faviconOutputPreview = document.getElementById('favicon-output-preview');
+        const faviconFileList = document.getElementById('favicon-file-list');
+        const faviconHeadCode = document.getElementById('favicon-head-code');
+        const copyFaviconTagsBtn = document.getElementById('copy-favicon-tags-btn');
+        const downloadFaviconPackBtn = document.getElementById('download-favicon-pack-btn');
+
+        const FAVICON_PNG_SPECS = [
+            { name: 'favicon-16x16.png', size: 16, label: 'Browser tab (16)' },
+            { name: 'favicon-32x32.png', size: 32, label: 'Browser tab (32)' },
+            { name: 'favicon-48x48.png', size: 48, label: 'Windows / browser (48)' },
+            { name: 'apple-touch-icon.png', size: 180, label: 'iPhone / iPad' },
+            { name: 'android-chrome-192x192.png', size: 192, label: 'Android / PWA' },
+            { name: 'android-chrome-512x512.png', size: 512, label: 'Android splash / PWA' },
+            { name: 'mstile-150x150.png', size: 150, label: 'Microsoft tile' }
+        ];
+
+        function showTool(toolName) {
+            const useFavicon = toolName === 'favicon';
+            imageConverterPanel.hidden = useFavicon;
+            faviconConverterPanel.hidden = !useFavicon;
+            toolTabs.forEach(tab => {
+                const isActive = tab.dataset.tool === toolName;
+                tab.classList.toggle('is-active', isActive);
+                tab.setAttribute('aria-pressed', String(isActive));
+            });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        toolTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                triggerHitFlash();
+                triggerShake(tab);
+                showTool(tab.dataset.tool);
+            });
+        });
+
+        function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error('画像の読み込みに失敗しました'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function loadDataUrlAsImage(dataUrl) {
+            return new Promise((resolve, reject) => {
+                const image = new Image();
+                image.onload = () => resolve(image);
+                image.onerror = () => reject(new Error('画像として読み込めませんでした'));
+                image.src = dataUrl;
+            });
+        }
+
+        function dataUrlToBlob(dataUrl) {
+            const [header, base64] = dataUrl.split(',');
+            const mime = (header.match(/data:(.*?);base64/) || [])[1] || 'application/octet-stream';
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            return new Blob([bytes], { type: mime });
+        }
+
+        function dataUrlToUint8Array(dataUrl) {
+            const binary = atob(dataUrl.split(',')[1]);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            return bytes;
+        }
+
+        function renderFaviconPng(image, size, fitMode) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d', { alpha: true });
+            ctx.clearRect(0, 0, size, size);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+
+            if (fitMode === 'contain') {
+                const scale = Math.min(size / image.width, size / image.height);
+                const drawWidth = Math.max(1, Math.round(image.width * scale));
+                const drawHeight = Math.max(1, Math.round(image.height * scale));
+                const dx = Math.round((size - drawWidth) / 2);
+                const dy = Math.round((size - drawHeight) / 2);
+                ctx.drawImage(image, dx, dy, drawWidth, drawHeight);
+            } else {
+                const side = Math.min(image.width, image.height);
+                const sx = Math.round((image.width - side) / 2);
+                const sy = Math.round((image.height - side) / 2);
+                ctx.drawImage(image, sx, sy, side, side, 0, 0, size, size);
+            }
+            return canvas.toDataURL('image/png');
+        }
+
+        // ICOは16/32/48px PNGを1ファイルに格納。現代ブラウザ向けのマルチサイズICO。
+        function createIcoBlob(iconEntries) {
+            const pngEntries = iconEntries.map(entry => ({
+                size: entry.size,
+                bytes: dataUrlToUint8Array(entry.dataUrl)
+            }));
+            const directoryOffset = 6;
+            const imageOffsetStart = directoryOffset + pngEntries.length * 16;
+            const totalImageBytes = pngEntries.reduce((sum, entry) => sum + entry.bytes.length, 0);
+            const buffer = new ArrayBuffer(imageOffsetStart + totalImageBytes);
+            const view = new DataView(buffer);
+            const output = new Uint8Array(buffer);
+
+            view.setUint16(0, 0, true); // reserved
+            view.setUint16(2, 1, true); // 1 = icon
+            view.setUint16(4, pngEntries.length, true);
+
+            let offset = imageOffsetStart;
+            pngEntries.forEach((entry, index) => {
+                const dir = directoryOffset + index * 16;
+                output[dir] = entry.size >= 256 ? 0 : entry.size;
+                output[dir + 1] = entry.size >= 256 ? 0 : entry.size;
+                output[dir + 2] = 0; // palette colors
+                output[dir + 3] = 0;
+                view.setUint16(dir + 4, 1, true); // planes
+                view.setUint16(dir + 6, 32, true); // bit depth
+                view.setUint32(dir + 8, entry.bytes.length, true);
+                view.setUint32(dir + 12, offset, true);
+                output.set(entry.bytes, offset);
+                offset += entry.bytes.length;
+            });
+            return new Blob([buffer], { type: 'image/x-icon' });
+        }
+
+        function buildFaviconHeadSnippet(themeColor) {
+            return `<!-- favicon pack: public/ または index.html と同じ階層に配置 -->
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="msapplication-config" content="/browserconfig.xml">
+<meta name="theme-color" content="${themeColor}">`;
+        }
+
+        function sanitizeFileStem(value) {
+            return (value || 'favicon')
+                .trim()
+                .replace(/[\\/:*?"<>|]/g, '-')
+                .replace(/\s+/g, '-')
+                .replace(/-+/g, '-')
+                .slice(0, 50) || 'favicon';
+        }
+
+        function renderFaviconFileChips(files) {
+            faviconFileList.innerHTML = '';
+            files.forEach(file => {
+                const chip = document.createElement('span');
+                chip.className = 'file-chip font-bold text-sm';
+                chip.textContent = file.name;
+                faviconFileList.appendChild(chip);
+            });
+        }
+
+        async function setFaviconSource(file) {
+            if (!file) return;
+            if (!file.type.startsWith('image/')) {
+                throw new Error('PNG / JPG / WebP / GIF / SVG などの画像を選んでください');
+            }
+            const dataUrl = await readFileAsDataUrl(file);
+            const image = await loadDataUrlAsImage(dataUrl);
+            faviconSource = { file, dataUrl, image };
+            faviconSourcePreview.src = dataUrl;
+            faviconSourceInfo.textContent = `${file.name}  ｜  ${image.width} × ${image.height} px  ｜  ${(file.size / 1024).toFixed(1)} KB`;
+            faviconSourceArea.classList.remove('hidden');
+            faviconResultArea.classList.add('hidden');
+            faviconDropZone.classList.add('favicon-drop-ready');
+            faviconErrorMessage.classList.add('hidden');
+        }
+
+        async function handleFaviconFiles(files) {
+            try {
+                if (!files || files.length === 0) return;
+                triggerHitFlash();
+                await setFaviconSource(files[0]);
+            } catch (error) {
+                faviconErrorMessage.textContent = error.message || '画像の読み込みに失敗しました';
+                faviconErrorMessage.classList.remove('hidden');
+            }
+        }
+
+        faviconDropZone.addEventListener('dragover', event => {
+            event.preventDefault();
+            faviconDropZone.classList.add('dragover');
+        });
+        faviconDropZone.addEventListener('dragleave', event => {
+            event.preventDefault();
+            faviconDropZone.classList.remove('dragover');
+        });
+        faviconDropZone.addEventListener('drop', event => {
+            event.preventDefault();
+            faviconDropZone.classList.remove('dragover');
+            triggerShake(faviconDropZone);
+            handleFaviconFiles(event.dataTransfer.files);
+        });
+        faviconFileInput.addEventListener('change', event => {
+            handleFaviconFiles(event.target.files);
+            faviconFileInput.value = '';
+        });
+
+        generateFaviconBtn.addEventListener('click', async function() {
+            if (!faviconSource) {
+                faviconErrorMessage.textContent = '先にfaviconの元画像を選んでください';
+                faviconErrorMessage.classList.remove('hidden');
+                return;
+            }
+
+            triggerShake(this);
+            const originalText = this.innerHTML;
+            this.disabled = true;
+            this.innerHTML = '<span class="blink-retro">生成中...</span>';
+            faviconErrorMessage.classList.add('hidden');
+
+            try {
+                const appName = faviconAppNameInput.value.trim() || 'My App';
+                const themeColor = faviconThemeColorInput.value || '#E60012';
+                const fitMode = faviconFitMode.value;
+                const rendered = FAVICON_PNG_SPECS.map(spec => ({
+                    ...spec,
+                    dataUrl: renderFaviconPng(faviconSource.image, spec.size, fitMode)
+                }));
+
+                const icoEntries = rendered
+                    .filter(entry => [16, 32, 48].includes(entry.size))
+                    .map(entry => ({ size: entry.size, dataUrl: entry.dataUrl }));
+                const icoBlob = createIcoBlob(icoEntries);
+                const manifest = {
+                    name: appName,
+                    short_name: appName.slice(0, 24),
+                    icons: [
+                        { src: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
+                        { src: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' }
+                    ],
+                    theme_color: themeColor,
+                    background_color: themeColor,
+                    display: 'standalone'
+                };
+                const browserConfig = `<?xml version="1.0" encoding="utf-8"?>\n<browserconfig><msapplication><tile><square150x150logo src="/mstile-150x150.png"/><TileColor>${themeColor}</TileColor></tile></msapplication></browserconfig>`;
+                faviconHeadSnippet = buildFaviconHeadSnippet(themeColor);
+                const readme = `${appName} - favicon pack\n\n1. ZIPを解凍します。\n2. favicon関連ファイルを公開フォルダ（Vercelならindex.htmlと同じ階層）に置きます。\n3. favicon-head.html の内容をHTMLの <head> に貼り付けます。\n\n生成方法: ${fitMode === 'crop' ? '中央を正方形にトリミング' : '全体を表示（余白は透過）'}\nテーマカラー: ${themeColor}\n`;
+
+                faviconPackageFiles = [
+                    ...rendered.map(entry => ({
+                        name: entry.name,
+                        blob: dataUrlToBlob(entry.dataUrl),
+                        previewDataUrl: entry.dataUrl,
+                        label: entry.label
+                    })),
+                    { name: 'favicon.ico', blob: icoBlob, label: 'Multi-size ICO (16 / 32 / 48)' },
+                    { name: 'site.webmanifest', blob: new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/manifest+json' }), label: 'PWA manifest' },
+                    { name: 'browserconfig.xml', blob: new Blob([browserConfig], { type: 'application/xml' }), label: 'Microsoft configuration' },
+                    { name: 'favicon-head.html', blob: new Blob([faviconHeadSnippet + '\n'], { type: 'text/html;charset=utf-8' }), label: 'Head snippet' },
+                    { name: 'README.txt', blob: new Blob([readme], { type: 'text/plain;charset=utf-8' }), label: 'Setup guide' }
+                ];
+
+                const preview = rendered.find(entry => entry.size === 48) || rendered[0];
+                faviconOutputPreview.src = preview.dataUrl;
+                faviconHeadCode.value = faviconHeadSnippet;
+                renderFaviconFileChips(faviconPackageFiles);
+                faviconResultArea.classList.remove('hidden');
+                faviconResultArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                triggerHitFlash();
+            } catch (error) {
+                faviconErrorMessage.textContent = error.message || 'favicon packの生成に失敗しました';
+                faviconErrorMessage.classList.remove('hidden');
+            } finally {
+                this.disabled = false;
+                this.innerHTML = originalText;
+            }
+        });
+
+        copyFaviconTagsBtn.addEventListener('click', async function() {
+            if (!faviconHeadSnippet) return;
+            triggerShake(this);
+            const originalText = this.textContent;
+            try {
+                await navigator.clipboard.writeText(faviconHeadSnippet);
+                this.textContent = 'コピーしました!';
+            } catch (error) {
+                faviconHeadCode.focus();
+                faviconHeadCode.select();
+                document.execCommand('copy');
+                this.textContent = 'コピーしました!';
+            }
+            setTimeout(() => { this.textContent = originalText; }, 1600);
+        });
+
+        downloadFaviconPackBtn.addEventListener('click', async function() {
+            if (faviconPackageFiles.length === 0) return;
+            triggerShake(this);
+            const originalText = this.innerHTML;
+            this.disabled = true;
+            this.innerHTML = '<span class="blink-retro">ZIP作成中...</span>';
+            try {
+                const zip = new JSZip();
+                faviconPackageFiles.forEach(file => zip.file(file.name, file.blob));
+                const zipBlob = await zip.generateAsync({ type: 'blob' });
+                const url = URL.createObjectURL(zipBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${sanitizeFileStem(faviconAppNameInput.value)}_favicon-pack.zip`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                faviconErrorMessage.textContent = 'ZIPの作成に失敗しました';
+                faviconErrorMessage.classList.remove('hidden');
+            } finally {
+                this.disabled = false;
+                this.innerHTML = originalText;
+            }
+        });
+
+    </script>
+</body>
+</html>
