@@ -307,6 +307,121 @@
             background: #005AAB;
             transition: width 0.15s linear;
         }
+
+        /* --------------------------------------
+           8. Compact first view / converter cockpit
+        --------------------------------------- */
+        .app-header {
+            min-height: 88px;
+        }
+        .app-brand-sub {
+            letter-spacing: 0.08em;
+        }
+        .compact-tool-tab {
+            min-height: 54px;
+        }
+        .converter-cockpit {
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+            gap: 1rem;
+            align-items: stretch;
+        }
+        .drop-primary {
+            min-height: 350px;
+        }
+        .settings-rail {
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+        }
+        .setting-block {
+            border: 3px solid #000;
+            background: #fff;
+            padding: 0.8rem;
+        }
+        .setting-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.7rem;
+        }
+        .setting-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            font-weight: 700;
+        }
+        .setting-field select,
+        .setting-field input[type="number"] {
+            width: 100%;
+            min-width: 0;
+        }
+        .output-now {
+            background: #111;
+            color: #fff;
+            border: 4px solid #000;
+            padding: 0.9rem 1rem;
+            box-shadow: 4px 4px 0 #000;
+        }
+        .privacy-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            border: 2px solid #000;
+            background: #eaffea;
+            padding: 0.35rem 0.55rem;
+            font-weight: 700;
+            font-size: 0.78rem;
+        }
+        .drop-format-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.4rem;
+        }
+        .drop-format-chip {
+            border: 2px solid #000;
+            background: #fff;
+            padding: 0.22rem 0.45rem;
+            font-weight: 700;
+            font-size: 0.78rem;
+        }
+        .pdf-scroll-hint {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #4b5563;
+        }
+
+        @media (max-width: 767px) {
+            body {
+                padding-top: 0.75rem !important;
+                padding-bottom: 2rem !important;
+            }
+            .app-header {
+                min-height: 0;
+            }
+            .converter-cockpit {
+                grid-template-columns: 1fr;
+            }
+            .drop-primary {
+                min-height: 230px;
+            }
+            .settings-rail {
+                gap: 0.7rem;
+            }
+            .setting-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (min-width: 768px) and (max-height: 820px) {
+            body {
+                padding-top: 1rem !important;
+                padding-bottom: 2rem !important;
+            }
+            .drop-primary {
+                min-height: 300px;
+            }
+        }
     </style>
 </head>
 <body class="font-pixel text-black py-10 px-4 min-h-screen">
@@ -318,90 +433,96 @@
     <!-- メインコンテンツ -->
     <div class="max-w-5xl mx-auto relative z-10">
         
-        <!-- ヘッダー -->
-        <header class="panel-retro p-8 text-center mb-10 relative overflow-hidden bg-white">
-            <div class="absolute top-2 left-2 w-4 h-4 bg-fc-red border-2 border-black"></div>
-            <div class="absolute top-2 right-2 w-4 h-4 bg-fc-blue border-2 border-black"></div>
-            <div class="absolute bottom-2 left-2 w-4 h-4 bg-fc-yellow border-2 border-black"></div>
-            <div class="absolute bottom-2 right-2 w-4 h-4 bg-green-500 border-2 border-black"></div>
+        <!-- コンパクトヘッダー / ツール切り替え -->
+        <header class="app-header panel-retro px-4 py-3 md:px-5 md:py-4 mb-4 bg-white relative overflow-hidden">
+            <div class="absolute top-2 left-2 w-3 h-3 bg-fc-red border-2 border-black"></div>
+            <div class="absolute bottom-2 left-2 w-3 h-3 bg-fc-yellow border-2 border-black"></div>
 
-            <h1 class="text-4xl md:text-5xl font-bold text-black mb-4 tracking-widest drop-shadow-[2px_2px_0_rgba(255,255,255,1)]">
-                IMAGE FORGE
-            </h1>
-            <p class="text-lg font-bold mb-6 bg-black text-white inline-block px-4 py-1 blink-retro">
-                ▶ IMAGE / PDF / FAVICON PACK
-            </p>
-            
-            <div class="inline-block text-left bg-gray-100 p-4 border-4 border-black border-dashed">
-                <p class="mb-2 text-fc-red font-bold text-xl">【 SYSTEM REQUIREMENTS 】</p>
-                <ul class="space-y-2 font-bold text-lg">
-                    <li>▶ PNG・JPG・PDF変換 / サイズ(px・KB)調整</li>
-                    <li>▶ 16:9余白補正 (JPG=白 / PNG=透過)</li>
-                    <li>▶ favicon.ico・PWA icon・設置タグを一括生成</li>
-                </ul>
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pl-4">
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <h1 class="text-2xl md:text-3xl font-bold tracking-widest">IMAGE FORGE</h1>
+                        <span class="privacy-chip">● LOCAL ONLY</span>
+                    </div>
+                    <p class="app-brand-sub text-xs md:text-sm font-bold text-gray-600 mt-1">画像・PDFを、欲しいサイズと形式へ。ブラウザ内で完結。</p>
+                </div>
+
+                <nav aria-label="ツールの切り替え" class="grid grid-cols-2 gap-2 lg:w-[420px]">
+                    <button type="button" class="tool-tab compact-tool-tab is-active px-3 py-2 font-bold text-sm md:text-base text-left" data-tool="image" aria-pressed="true">
+                        <span class="block text-[10px] mb-0.5 opacity-70">TOOL 01</span>
+                        IMAGE / PDF
+                    </button>
+                    <button type="button" class="tool-tab compact-tool-tab px-3 py-2 font-bold text-sm md:text-base text-left" data-tool="favicon" aria-pressed="false">
+                        <span class="block text-[10px] mb-0.5 opacity-70">TOOL 02</span>
+                        FAVICON PACK
+                    </button>
+                </nav>
             </div>
         </header>
 
-        <!-- ツール切り替え -->
-        <nav class="panel-retro mb-8 p-4 bg-white" aria-label="ツールの切り替え">
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button type="button" class="tool-tab is-active px-5 py-4 font-bold text-xl text-left" data-tool="image" aria-pressed="true">
-                    <span class="block text-sm mb-1 opacity-80">TOOL 01</span>
-                    IMAGE / PDF CONVERTER
-                </button>
-                <button type="button" class="tool-tab px-5 py-4 font-bold text-xl text-left" data-tool="favicon" aria-pressed="false">
-                    <span class="block text-sm mb-1 opacity-80">TOOL 02</span>
-                    FAVICON PACK GENERATOR
-                </button>
-            </div>
-        </nav>
-
         <section id="image-converter-panel" class="tool-panel">
-        <!-- ★ NEW: 詳細オプション設定 -->
-        <div class="panel-retro p-6 mb-8 bg-white flex flex-col gap-6">
-            <!-- チェックボックス群 -->
-            <div class="flex flex-col sm:flex-row gap-6 justify-center items-center border-b-4 border-black pb-6 border-dashed">
-                <label class="flex items-center cursor-pointer group hover:bg-gray-100 p-2 border-2 border-transparent hover:border-black transition-colors">
-                    <input type="checkbox" id="keep-aspect-checkbox" class="chk-retro">
-                    <span class="ml-3 font-bold text-lg pt-1 select-none">サイズ比をそのままにする(16:9にしない)</span>
-                </label>
-                <label class="flex items-center cursor-pointer group hover:bg-gray-100 p-2 border-2 border-transparent hover:border-black transition-colors">
-                    <input type="checkbox" id="keep-filename-checkbox" class="chk-retro">
-                    <span class="ml-3 font-bold text-lg pt-1 select-none">ファイル名を元のままにする</span>
-                </label>
+        <!-- ファーストビュー: 入力と出力設定を1画面に集約 -->
+        <div class="converter-cockpit">
+            <div id="drop-zone" class="drop-primary w-full bg-white border-[6px] border-dashed border-black p-6 md:p-8 text-center hover:bg-blue-50 transition-colors cursor-pointer flex flex-col items-center justify-center panel-retro relative group overflow-hidden">
+                <div class="text-5xl md:text-6xl mb-3 transform group-hover:scale-110 transition-transform steps(2)">📁</div>
+                <p class="text-2xl md:text-3xl font-bold text-black mb-2 select-none">ここに画像・PDFをドロップ</p>
+                <p class="text-base md:text-lg font-bold text-gray-600 select-none">クリックして選んでもOK</p>
+                <div class="drop-format-row mt-4" aria-hidden="true">
+                    <span class="drop-format-chip">PNG</span>
+                    <span class="drop-format-chip">JPG</span>
+                    <span class="drop-format-chip">WebP</span>
+                    <span class="drop-format-chip">PDF</span>
+                </div>
+                <p class="text-xs md:text-sm font-bold text-gray-500 mt-4 select-none">PDFはページを選んでから画像化できます</p>
+                <input type="file" id="file-input" multiple accept="image/*,application/pdf,.pdf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
             </div>
-            
-            <!-- 数値・形式指定群 -->
-            <div class="flex flex-wrap gap-6 justify-center items-center">
-                <div class="flex items-center gap-2">
-                    <span class="font-bold text-lg select-none">形式:</span>
-                    <select id="format-select" class="border-4 border-black p-2 font-pixel text-lg focus:bg-yellow-50 outline-none cursor-pointer">
-                        <option value="jpeg">JPG (白背景)</option>
-                        <option value="png">PNG (透過背景)</option>
-                    </select>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="font-bold text-lg select-none">出力幅(px):</span>
-                    <input type="number" id="target-width" placeholder="自動" min="1" class="border-4 border-black p-2 w-28 font-pixel text-lg focus:bg-yellow-50 outline-none text-center">
-                </div>
-                <div class="flex items-center gap-2 relative group" id="size-limit-container">
-                    <span class="font-bold text-lg select-none">最大(KB):</span>
-                    <input type="number" id="target-size" placeholder="制限なし" min="1" class="border-4 border-black p-2 w-32 font-pixel text-lg focus:bg-yellow-50 outline-none text-center transition-colors">
-                    <!-- ツールチップ風エラーメッセージ -->
-                    <span id="png-size-warning" class="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs p-2 hidden whitespace-nowrap">
-                        PNGはサイズ指定できません
-                    </span>
-                </div>
-            </div>
-        </div>
 
-        <!-- ドラッグ＆ドロップエリア -->
-        <div id="drop-zone" class="w-full bg-white border-[6px] border-dashed border-black p-12 text-center hover:bg-blue-50 transition-colors cursor-pointer flex flex-col items-center justify-center panel-retro relative group overflow-hidden">
-            <div class="text-6xl mb-4 transform group-hover:scale-110 transition-transform steps(2)">📁</div>
-            <p class="text-2xl font-bold text-black mb-2 select-none">画像・PDFをここにドロップ</p>
-            <p class="text-lg font-bold text-gray-600 select-none">またはクリックしてえらぶ</p>
-            <p class="text-sm font-bold text-gray-500 mt-3 select-none">PNG / JPG / WebP / PDF</p>
-            <input type="file" id="file-input" multiple accept="image/*,application/pdf,.pdf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+            <aside class="settings-rail" aria-label="出力設定">
+                <div class="output-now">
+                    <p class="text-xs font-bold text-fc-yellow mb-1">OUTPUT NOW</p>
+                    <p id="quick-output-main" class="text-xl font-bold">JPG / 16:9</p>
+                    <p id="quick-output-sub" class="text-xs md:text-sm font-bold text-gray-300 mt-1">幅 自動 / サイズ制限なし</p>
+                </div>
+
+                <div class="setting-block">
+                    <div class="setting-grid">
+                        <label class="setting-field">
+                            <span>形式</span>
+                            <select id="format-select" class="border-4 border-black p-2 font-pixel text-base focus:bg-yellow-50 outline-none cursor-pointer">
+                                <option value="jpeg">JPG</option>
+                                <option value="png">PNG</option>
+                            </select>
+                        </label>
+
+                        <label class="setting-field">
+                            <span>出力幅(px)</span>
+                            <input type="number" id="target-width" placeholder="自動" min="1" class="border-4 border-black p-2 font-pixel text-base focus:bg-yellow-50 outline-none text-center">
+                        </label>
+
+                        <label class="setting-field col-span-2" id="size-limit-container">
+                            <span>最大(KB) <span class="text-xs text-gray-500">JPGのみ</span></span>
+                            <input type="number" id="target-size" placeholder="制限なし" min="1" class="border-4 border-black p-2 font-pixel text-base focus:bg-yellow-50 outline-none text-center transition-colors">
+                            <span id="png-size-warning" class="text-xs font-bold text-fc-red hidden">PNGではサイズ指定を使いません</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="setting-block flex flex-col gap-2">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" id="keep-aspect-checkbox" class="chk-retro">
+                        <span class="ml-3 font-bold text-sm md:text-base select-none">元の縦横比を維持</span>
+                    </label>
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" id="keep-filename-checkbox" class="chk-retro">
+                        <span class="ml-3 font-bold text-sm md:text-base select-none">元のファイル名を維持</span>
+                    </label>
+                </div>
+
+                <div class="text-xs font-bold leading-relaxed text-gray-600 px-1">
+                    JPGは白背景 / PNGは透過。<br class="hidden md:block">
+                    ファイルはサーバーへ送信しません。
+                </div>
+            </aside>
         </div>
 
         <!-- PDFページ選択 -->
@@ -429,6 +550,10 @@
                 </div>
             </div>
 
+            <div class="flex items-center justify-between gap-3 mb-2">
+                <span class="pdf-scroll-hint">ページを押すと選択 / 解除</span>
+                <span class="pdf-scroll-hint">← 横にスクロール →</span>
+            </div>
             <div id="pdf-pages" class="pdf-pages" aria-label="PDFページ一覧"></div>
 
             <div class="mt-6 pt-6 border-t-4 border-dashed border-black flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -581,6 +706,8 @@
         let activePdf = null;
         let activePdfFile = null;
         let selectedPdfPages = new Set();
+        let pdfThumbnailObserver = null;
+        let pdfLoadVersion = 0;
 
         if (window.pdfjsLib) {
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -608,6 +735,8 @@
         const pdfProgressLabel = document.getElementById('pdf-progress-label');
         const pdfProgressCount = document.getElementById('pdf-progress-count');
         const pdfProgressBar = document.getElementById('pdf-progress-bar');
+        const quickOutputMain = document.getElementById('quick-output-main');
+        const quickOutputSub = document.getElementById('quick-output-sub');
         
         const keepAspectCheckbox = document.getElementById('keep-aspect-checkbox');
         const keepFilenameCheckbox = document.getElementById('keep-filename-checkbox');
@@ -623,6 +752,16 @@
         const imageConverterPanel = document.getElementById('image-converter-panel');
         const faviconConverterPanel = document.getElementById('favicon-converter-panel');
 
+        function updateQuickOutput() {
+            const formatLabel = formatSelect.value === 'jpeg' ? 'JPG' : 'PNG';
+            const ratioLabel = keepAspectCheckbox.checked ? '元比率' : '16:9';
+            const widthValue = parseInt(targetWidthInput.value);
+            const sizeValue = parseFloat(targetSizeInput.value);
+
+            quickOutputMain.textContent = `${formatLabel} / ${ratioLabel}`;
+            quickOutputSub.textContent = `${widthValue > 0 ? `幅 ${widthValue}px` : '幅 自動'} / ${formatSelect.value === 'jpeg' && sizeValue > 0 ? `最大 ${sizeValue}KB` : 'サイズ制限なし'}`;
+        }
+
         // フォーマット選択時の UI 制御 (PNG時はサイズ指定不可)
         formatSelect.addEventListener('change', () => {
             if (formatSelect.value === 'png') {
@@ -634,7 +773,13 @@
                 targetSizeInput.classList.remove('disabled-retro');
                 pngSizeWarning.classList.add('hidden');
             }
+            updateQuickOutput();
         });
+
+        targetWidthInput.addEventListener('input', updateQuickOutput);
+        targetSizeInput.addEventListener('input', updateQuickOutput);
+        keepAspectCheckbox.addEventListener('change', updateQuickOutput);
+        updateQuickOutput();
 
         const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -817,6 +962,11 @@
         }
 
         function resetPdfWorkspace() {
+            pdfLoadVersion++;
+            if (pdfThumbnailObserver) {
+                pdfThumbnailObserver.disconnect();
+                pdfThumbnailObserver = null;
+            }
             if (activePdf && typeof activePdf.destroy === 'function') {
                 try { activePdf.destroy(); } catch (error) {}
             }
@@ -856,8 +1006,8 @@
             });
         }
 
-        async function renderPdfThumbnail(pageNumber) {
-            const page = await activePdf.getPage(pageNumber);
+        async function renderPdfThumbnail(pageNumber, pdfDocument = activePdf) {
+            const page = await pdfDocument.getPage(pageNumber);
             const baseViewport = page.getViewport({ scale: 1 });
             const scale = Math.min(0.4, 140 / baseViewport.width, 170 / baseViewport.height);
             const viewport = page.getViewport({ scale: Math.max(scale, 0.12) });
@@ -869,58 +1019,123 @@
             return canvas;
         }
 
+        async function renderThumbnailIntoCard(card, version, pdfDocument) {
+            if (!card || card.dataset.thumbState === 'loading' || card.dataset.thumbState === 'done') return;
+            card.dataset.thumbState = 'loading';
+            const pageNumber = Number(card.dataset.pdfPage);
+            const preview = card.querySelector('.pdf-page-preview');
+
+            try {
+                const canvas = await renderPdfThumbnail(pageNumber, pdfDocument);
+                if (version !== pdfLoadVersion || pdfDocument !== activePdf || !card.isConnected) return;
+                preview.innerHTML = '';
+                preview.appendChild(canvas);
+                card.dataset.thumbState = 'done';
+            } catch (error) {
+                if (version !== pdfLoadVersion || !card.isConnected) return;
+                preview.innerHTML = '<span class="font-bold text-fc-red text-xs">PREVIEW ERROR</span>';
+                card.dataset.thumbState = 'error';
+            }
+        }
+
+        function startLazyPdfThumbnails(version, pdfDocument) {
+            const cards = Array.from(pdfPages.querySelectorAll('[data-pdf-page]'));
+
+            if ('IntersectionObserver' in window) {
+                pdfThumbnailObserver = new IntersectionObserver(entries => {
+                    entries.forEach(entry => {
+                        if (!entry.isIntersecting) return;
+                        pdfThumbnailObserver.unobserve(entry.target);
+                        renderThumbnailIntoCard(entry.target, version, pdfDocument);
+                    });
+                }, {
+                    root: pdfPages,
+                    rootMargin: '0px 320px',
+                    threshold: 0.01
+                });
+                cards.forEach(card => pdfThumbnailObserver.observe(card));
+            } else {
+                cards.slice(0, 8).forEach(card => renderThumbnailIntoCard(card, version, pdfDocument));
+            }
+        }
+
+        function friendlyPdfError(error) {
+            const name = String(error?.name || '');
+            const message = String(error?.message || '');
+
+            if (name.includes('Password') || /password/i.test(message)) {
+                return 'パスワード付きPDFには現在対応していません。ロックを解除したPDFを使用してください。';
+            }
+            if (name.includes('InvalidPDF') || /invalid pdf/i.test(message)) {
+                return 'PDFを正しく読み込めませんでした。ファイルが壊れていないか確認してください。';
+            }
+            if (name.includes('MissingPDF')) {
+                return 'PDFファイルを読み込めませんでした。もう一度選び直してください。';
+            }
+            return message || 'PDFの読み込みに失敗しました。';
+        }
+
         async function loadPdf(file) {
             if (!window.pdfjsLib) throw new Error('PDF機能の読み込みに失敗しました。ページを再読み込みしてください。');
 
             resetPdfWorkspace();
+            const version = pdfLoadVersion;
             resetConvertedResults();
             errorMessage.classList.add('hidden');
             pdfWorkspace.classList.remove('hidden');
             pdfFileName.textContent = file.name;
-            pdfFileInfo.textContent = 'PDFを読み込んでいます...';
-            pdfPages.innerHTML = '<div class="font-bold text-lg py-6 blink-retro">ページを解析中...</div>';
+            pdfFileInfo.textContent = 'PDFを解析しています...';
+            pdfPages.innerHTML = '<div class="font-bold text-lg py-6 blink-retro">ページ情報を読み込み中...</div>';
             convertPdfBtn.disabled = true;
             convertPdfBtn.classList.add('disabled-retro');
 
-            const data = new Uint8Array(await file.arrayBuffer());
-            const loadingTask = pdfjsLib.getDocument({ data });
-            activePdf = await loadingTask.promise;
-            activePdfFile = file;
-            selectedPdfPages = new Set(Array.from({ length: activePdf.numPages }, (_, i) => i + 1));
-            pdfFileInfo.textContent = `${activePdf.numPages}ページ / ${(file.size / 1024 / 1024).toFixed(1)} MB`;
-            pdfPages.innerHTML = '';
+            try {
+                const data = new Uint8Array(await file.arrayBuffer());
+                if (version !== pdfLoadVersion) return;
 
-            for (let pageNumber = 1; pageNumber <= activePdf.numPages; pageNumber++) {
-                const card = document.createElement('button');
-                card.type = 'button';
-                card.className = 'pdf-page-card is-selected';
-                card.dataset.pdfPage = pageNumber;
-                card.setAttribute('aria-pressed', 'true');
-                card.innerHTML = `
-                    <div class="pdf-page-preview"><span class="font-bold text-sm blink-retro">読込中</span></div>
-                    <div class="font-bold text-center py-2">PAGE ${String(pageNumber).padStart(2, '0')}</div>
-                    <div class="pdf-page-status">✓ 選択中</div>
-                `;
-                card.addEventListener('click', () => {
-                    if (selectedPdfPages.has(pageNumber)) selectedPdfPages.delete(pageNumber);
-                    else selectedPdfPages.add(pageNumber);
-                    updatePdfSummary();
-                });
-                pdfPages.appendChild(card);
-
-                try {
-                    const canvas = await renderPdfThumbnail(pageNumber);
-                    const preview = card.querySelector('.pdf-page-preview');
-                    preview.innerHTML = '';
-                    preview.appendChild(canvas);
-                } catch (error) {
-                    const preview = card.querySelector('.pdf-page-preview');
-                    preview.innerHTML = '<span class="font-bold text-fc-red text-sm">PREVIEW ERROR</span>';
+                const loadingTask = pdfjsLib.getDocument({ data });
+                const pdfDocument = await loadingTask.promise;
+                if (version !== pdfLoadVersion) {
+                    try { pdfDocument.destroy(); } catch (error) {}
+                    return;
                 }
-            }
 
-            updatePdfSummary();
-            pdfWorkspace.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                activePdf = pdfDocument;
+                activePdfFile = file;
+                selectedPdfPages = new Set(Array.from({ length: activePdf.numPages }, (_, i) => i + 1));
+
+                const largeNote = activePdf.numPages >= 50 ? ' / サムネイルは表示位置から順に生成' : '';
+                pdfFileInfo.textContent = `${activePdf.numPages}ページ / ${(file.size / 1024 / 1024).toFixed(1)} MB${largeNote}`;
+                pdfPages.innerHTML = '';
+
+                const fragment = document.createDocumentFragment();
+                for (let pageNumber = 1; pageNumber <= activePdf.numPages; pageNumber++) {
+                    const card = document.createElement('button');
+                    card.type = 'button';
+                    card.className = 'pdf-page-card is-selected';
+                    card.dataset.pdfPage = pageNumber;
+                    card.dataset.thumbState = 'idle';
+                    card.setAttribute('aria-pressed', 'true');
+                    card.innerHTML = `
+                        <div class="pdf-page-preview"><span class="font-bold text-xs text-gray-600">PREVIEW</span></div>
+                        <div class="font-bold text-center py-2">PAGE ${String(pageNumber).padStart(2, '0')}</div>
+                        <div class="pdf-page-status">✓ 選択中</div>
+                    `;
+                    card.addEventListener('click', () => {
+                        if (selectedPdfPages.has(pageNumber)) selectedPdfPages.delete(pageNumber);
+                        else selectedPdfPages.add(pageNumber);
+                        updatePdfSummary();
+                    });
+                    fragment.appendChild(card);
+                }
+                pdfPages.appendChild(fragment);
+
+                updatePdfSummary();
+                startLazyPdfThumbnails(version, pdfDocument);
+                pdfWorkspace.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } catch (error) {
+                throw new Error(friendlyPdfError(error));
+            }
         }
 
         async function convertSelectedPdfPages() {
