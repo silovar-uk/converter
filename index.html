@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IMAGE FORGE | 16:9 & Favicon Converter</title>
-    <meta name="description" content="16:9画像変換とfavicon一括生成を、ブラウザ内だけで完結できるツールです。">
+    <title>IMAGE FORGE | Image / PDF / Favicon Converter</title>
+    <meta name="description" content="画像・PDFのPNG/JPG変換とfavicon一括生成を、ブラウザ内だけで完結できるツールです。">
     <meta name="theme-color" content="#E60012">
     <link rel="icon" href="./app-icon.svg" type="image/svg+xml">
     <link rel="icon" href="./favicon.ico" sizes="any">
@@ -15,6 +15,7 @@
     <!-- 外部ライブラリとフォントの読み込み -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -246,6 +247,66 @@
             display: inline-block;
             box-shadow: 2px 2px 0 #000;
         }
+
+        /* --------------------------------------
+           7. PDF workspace
+        --------------------------------------- */
+        .pdf-pages {
+            display: flex;
+            gap: 1rem;
+            overflow-x: auto;
+            padding: 0.35rem 0.2rem 1rem;
+            scroll-snap-type: x proximity;
+        }
+        .pdf-page-card {
+            flex: 0 0 150px;
+            scroll-snap-align: start;
+            border: 4px solid #000;
+            background: #fff;
+            box-shadow: 4px 4px 0 #000;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.1s steps(2), background-color 0.1s steps(2);
+        }
+        .pdf-page-card:hover { transform: translateY(-2px); }
+        .pdf-page-card.is-selected { background: #fff3a6; }
+        .pdf-page-card.is-selected .pdf-page-status { background: #000; color: #fff; }
+        .pdf-page-preview {
+            width: 100%;
+            height: 180px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #d1d5db;
+            border-bottom: 4px solid #000;
+            overflow: hidden;
+        }
+        .pdf-page-preview canvas {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            background: #fff;
+        }
+        .pdf-page-status {
+            padding: 0.55rem 0.5rem;
+            text-align: center;
+            font-weight: 700;
+            border-top: 2px dashed #000;
+        }
+        .pdf-progress-track {
+            width: 100%;
+            height: 24px;
+            border: 4px solid #000;
+            background: #fff;
+            overflow: hidden;
+        }
+        .pdf-progress-bar {
+            height: 100%;
+            width: 0%;
+            background: #005AAB;
+            transition: width 0.15s linear;
+        }
     </style>
 </head>
 <body class="font-pixel text-black py-10 px-4 min-h-screen">
@@ -268,13 +329,13 @@
                 IMAGE FORGE
             </h1>
             <p class="text-lg font-bold mb-6 bg-black text-white inline-block px-4 py-1 blink-retro">
-                ▶ 16:9 IMAGE / FAVICON PACK
+                ▶ IMAGE / PDF / FAVICON PACK
             </p>
             
             <div class="inline-block text-left bg-gray-100 p-4 border-4 border-black border-dashed">
                 <p class="mb-2 text-fc-red font-bold text-xl">【 SYSTEM REQUIREMENTS 】</p>
                 <ul class="space-y-2 font-bold text-lg">
-                    <li>▶ PNG・JPG変換 / サイズ(px・KB)調整</li>
+                    <li>▶ PNG・JPG・PDF変換 / サイズ(px・KB)調整</li>
                     <li>▶ 16:9余白補正 (JPG=白 / PNG=透過)</li>
                     <li>▶ favicon.ico・PWA icon・設置タグを一括生成</li>
                 </ul>
@@ -286,7 +347,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button type="button" class="tool-tab is-active px-5 py-4 font-bold text-xl text-left" data-tool="image" aria-pressed="true">
                     <span class="block text-sm mb-1 opacity-80">TOOL 01</span>
-                    16:9 IMAGE CONVERTER
+                    IMAGE / PDF CONVERTER
                 </button>
                 <button type="button" class="tool-tab px-5 py-4 font-bold text-xl text-left" data-tool="favicon" aria-pressed="false">
                     <span class="block text-sm mb-1 opacity-80">TOOL 02</span>
@@ -337,9 +398,59 @@
         <!-- ドラッグ＆ドロップエリア -->
         <div id="drop-zone" class="w-full bg-white border-[6px] border-dashed border-black p-12 text-center hover:bg-blue-50 transition-colors cursor-pointer flex flex-col items-center justify-center panel-retro relative group overflow-hidden">
             <div class="text-6xl mb-4 transform group-hover:scale-110 transition-transform steps(2)">📁</div>
-            <p class="text-2xl font-bold text-black mb-2 select-none">ここに画像をドロップ</p>
+            <p class="text-2xl font-bold text-black mb-2 select-none">画像・PDFをここにドロップ</p>
             <p class="text-lg font-bold text-gray-600 select-none">またはクリックしてえらぶ</p>
-            <input type="file" id="file-input" multiple accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+            <p class="text-sm font-bold text-gray-500 mt-3 select-none">PNG / JPG / WebP / PDF</p>
+            <input type="file" id="file-input" multiple accept="image/*,application/pdf,.pdf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+        </div>
+
+        <!-- PDFページ選択 -->
+        <div id="pdf-workspace" class="hidden mt-8 panel-retro bg-white p-6">
+            <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-5 border-b-4 border-dashed border-black pb-5">
+                <div class="min-w-0">
+                    <p class="font-bold text-fc-red text-xl mb-1">PDF READY</p>
+                    <h2 id="pdf-file-name" class="text-2xl font-bold break-all"></h2>
+                    <p id="pdf-file-info" class="font-bold text-gray-600 mt-2"></p>
+                </div>
+                <div class="bg-gray-100 border-4 border-black border-dashed px-4 py-3 font-bold text-sm leading-relaxed shrink-0">
+                    PDFはブラウザ内で処理します<br>
+                    サーバーへアップロードしません
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-5 mb-4">
+                <div>
+                    <p class="font-bold text-xl">変換するページ</p>
+                    <p id="pdf-selection-count" class="font-bold text-gray-600 mt-1"></p>
+                </div>
+                <div class="flex flex-wrap gap-3">
+                    <button id="pdf-select-all-btn" type="button" class="px-4 py-2 bg-white text-black font-bold btn-retro">全ページ選択</button>
+                    <button id="pdf-clear-selection-btn" type="button" class="px-4 py-2 bg-white text-black font-bold btn-retro">すべて解除</button>
+                </div>
+            </div>
+
+            <div id="pdf-pages" class="pdf-pages" aria-label="PDFページ一覧"></div>
+
+            <div class="mt-6 pt-6 border-t-4 border-dashed border-black flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div>
+                    <p class="font-bold text-fc-red text-lg mb-1">OUTPUT PREVIEW</p>
+                    <p id="pdf-output-summary" class="font-bold text-2xl"></p>
+                    <p id="pdf-output-detail" class="font-bold text-gray-600 mt-2"></p>
+                </div>
+                <button id="convert-pdf-btn" type="button" class="px-7 py-4 bg-fc-red text-white font-bold text-xl btn-retro whitespace-nowrap">
+                    PDFを変換
+                </button>
+            </div>
+
+            <div id="pdf-progress" class="hidden mt-6 pt-6 border-t-4 border-dashed border-black">
+                <div class="flex justify-between gap-4 font-bold mb-2">
+                    <span id="pdf-progress-label">変換中...</span>
+                    <span id="pdf-progress-count">0 / 0</span>
+                </div>
+                <div class="pdf-progress-track" aria-hidden="true">
+                    <div id="pdf-progress-bar" class="pdf-progress-bar"></div>
+                </div>
+            </div>
         </div>
 
         <!-- エラー領域 -->
@@ -467,6 +578,13 @@
 
     <script>
         let processedImages = [];
+        let activePdf = null;
+        let activePdfFile = null;
+        let selectedPdfPages = new Set();
+
+        if (window.pdfjsLib) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
 
         // DOM要素
         const dropZone = document.getElementById('drop-zone');
@@ -476,6 +594,20 @@
         const downloadAllBtn = document.getElementById('download-all-btn');
         const clearBtn = document.getElementById('clear-btn');
         const errorMessage = document.getElementById('error-message');
+        const pdfWorkspace = document.getElementById('pdf-workspace');
+        const pdfFileName = document.getElementById('pdf-file-name');
+        const pdfFileInfo = document.getElementById('pdf-file-info');
+        const pdfPages = document.getElementById('pdf-pages');
+        const pdfSelectionCount = document.getElementById('pdf-selection-count');
+        const pdfSelectAllBtn = document.getElementById('pdf-select-all-btn');
+        const pdfClearSelectionBtn = document.getElementById('pdf-clear-selection-btn');
+        const pdfOutputSummary = document.getElementById('pdf-output-summary');
+        const pdfOutputDetail = document.getElementById('pdf-output-detail');
+        const convertPdfBtn = document.getElementById('convert-pdf-btn');
+        const pdfProgress = document.getElementById('pdf-progress');
+        const pdfProgressLabel = document.getElementById('pdf-progress-label');
+        const pdfProgressCount = document.getElementById('pdf-progress-count');
+        const pdfProgressBar = document.getElementById('pdf-progress-bar');
         
         const keepAspectCheckbox = document.getElementById('keep-aspect-checkbox');
         const keepFilenameCheckbox = document.getElementById('keep-filename-checkbox');
@@ -538,7 +670,108 @@
             }
         }
 
-        // --- 画像処理コアロジック ---
+        // --- 画像 / PDF 共通処理コアロジック ---
+        function convertVisualSource(source, originalName, forcedFileName = null) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            const targetFormat = formatSelect.value;
+            const ext = targetFormat === 'jpeg' ? '.jpg' : '.png';
+            const tWidth = parseInt(targetWidthInput.value);
+            const tSizeKB = parseFloat(targetSizeInput.value);
+
+            const sourceWidth = source.width;
+            const sourceHeight = source.height;
+            const targetRatio = 16 / 9;
+            const sourceRatio = sourceWidth / sourceHeight;
+            let cWidth, cHeight;
+
+            if (tWidth > 0) {
+                cWidth = tWidth;
+                cHeight = keepAspectCheckbox.checked
+                    ? Math.round(cWidth / sourceRatio)
+                    : Math.round(cWidth / targetRatio);
+            } else if (keepAspectCheckbox.checked) {
+                cWidth = sourceWidth;
+                cHeight = sourceHeight;
+            } else if (sourceRatio <= targetRatio) {
+                cHeight = sourceHeight;
+                cWidth = Math.round(cHeight * targetRatio);
+            } else {
+                cWidth = sourceWidth;
+                cHeight = Math.round(cWidth / targetRatio);
+            }
+
+            canvas.width = cWidth;
+            canvas.height = cHeight;
+
+            if (targetFormat === 'jpeg') {
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            } else {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+
+            let drawWidth, drawHeight;
+            if (keepAspectCheckbox.checked) {
+                drawWidth = cWidth;
+                drawHeight = cHeight;
+            } else {
+                const cRatio = cWidth / cHeight;
+                if (sourceRatio <= cRatio) {
+                    drawHeight = cHeight;
+                    drawWidth = drawHeight * sourceRatio;
+                } else {
+                    drawWidth = cWidth;
+                    drawHeight = drawWidth / sourceRatio;
+                }
+            }
+
+            const dx = (cWidth - drawWidth) / 2;
+            const dy = (cHeight - drawHeight) / 2;
+            ctx.drawImage(source, dx, dy, drawWidth, drawHeight);
+
+            let dataUrl;
+            if (targetFormat === 'jpeg' && tSizeKB > 0) {
+                const targetBytes = tSizeKB * 1024;
+                let quality = 0.9;
+                let minQ = 0.05;
+                let maxQ = 1.0;
+
+                dataUrl = canvas.toDataURL('image/jpeg', quality);
+                let bytes = Math.round((dataUrl.split(',')[1].length * 3) / 4);
+                let attempts = 0;
+
+                while (bytes > targetBytes && attempts < 6) {
+                    maxQ = quality;
+                    quality = (minQ + maxQ) / 2;
+                    dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    bytes = Math.round((dataUrl.split(',')[1].length * 3) / 4);
+                    attempts++;
+                }
+                if (bytes > targetBytes) dataUrl = canvas.toDataURL('image/jpeg', 0.05);
+            } else {
+                dataUrl = canvas.toDataURL(`image/${targetFormat}`, targetFormat === 'jpeg' ? 0.9 : undefined);
+            }
+
+            const fileName = forcedFileName || getOutputFileName(originalName, ext);
+            const base64str = dataUrl.split(',')[1];
+            const bytesResult = Math.round((base64str.length * 3) / 4);
+            const fileSizeStr = bytesResult < 1024 * 1024
+                ? (bytesResult / 1024).toFixed(1) + ' KB'
+                : (bytesResult / (1024 * 1024)).toFixed(2) + ' MB';
+
+            return {
+                id: generateId(),
+                dataUrl,
+                fileName,
+                originalName,
+                fileSizeStr,
+                dimensionsStr: `${cWidth} × ${cHeight} px`,
+                ext
+            };
+        }
+
         function processImage(file) {
             return new Promise((resolve, reject) => {
                 if (!file.type.startsWith('image/')) {
@@ -551,114 +784,207 @@
 
                 img.onload = () => {
                     URL.revokeObjectURL(url);
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    
-                    const targetFormat = formatSelect.value;
-                    const ext = targetFormat === 'jpeg' ? '.jpg' : '.png';
-                    const tWidth = parseInt(targetWidthInput.value);
-                    const tSizeKB = parseFloat(targetSizeInput.value);
-
-                    const targetRatio = 16 / 9;
-                    const imgRatio = img.width / img.height;
-                    let cWidth, cHeight;
-
-                    // ① キャンバスサイズ (出力ピクセル数) の決定
-                    if (tWidth > 0) {
-                        cWidth = tWidth;
-                        cHeight = keepAspectCheckbox.checked 
-                            ? Math.round(cWidth / imgRatio) 
-                            : Math.round(cWidth / targetRatio);
-                    } else {
-                        // 幅指定なし時はオリジナル基準
-                        if (keepAspectCheckbox.checked) {
-                            cWidth = img.width; 
-                            cHeight = img.height;
-                        } else {
-                            if (imgRatio <= targetRatio) {
-                                cHeight = img.height; 
-                                cWidth = Math.round(cHeight * targetRatio);
-                            } else {
-                                cWidth = img.width; 
-                                cHeight = Math.round(cWidth / targetRatio);
-                            }
-                        }
+                    try {
+                        resolve(convertVisualSource(img, file.name));
+                    } catch (error) {
+                        reject(error);
                     }
-
-                    canvas.width = cWidth; 
-                    canvas.height = cHeight;
-                    
-                    // ② 背景の処理 (JPGは白、PNGは透明)
-                    if (targetFormat === 'jpeg') {
-                        ctx.fillStyle = '#FFFFFF';
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    } else {
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    }
-
-                    // ③ 画像のスケーリング描画
-                    let drawWidth, drawHeight;
-                    if (keepAspectCheckbox.checked) {
-                        drawWidth = cWidth;
-                        drawHeight = cHeight;
-                    } else {
-                        const cRatio = cWidth / cHeight;
-                        if (imgRatio <= cRatio) {
-                            drawHeight = cHeight;
-                            drawWidth = drawHeight * imgRatio;
-                        } else {
-                            drawWidth = cWidth;
-                            drawHeight = drawWidth / imgRatio;
-                        }
-                    }
-                    const dx = (cWidth - drawWidth) / 2;
-                    const dy = (cHeight - drawHeight) / 2;
-                    ctx.drawImage(img, dx, dy, drawWidth, drawHeight);
-
-                    // ④ エンコードとファイルサイズ調整 (JPGのみ)
-                    let dataUrl;
-                    if (targetFormat === 'jpeg' && tSizeKB > 0) {
-                        const targetBytes = tSizeKB * 1024;
-                        let quality = 0.9;
-                        let minQ = 0.05, maxQ = 1.0;
-                        
-                        dataUrl = canvas.toDataURL('image/jpeg', quality);
-                        let bytes = Math.round((dataUrl.split(',')[1].length * 3) / 4);
-                        
-                        // 簡易二分探索で目標サイズに寄せる
-                        let attempts = 0;
-                        while (bytes > targetBytes && attempts < 6) {
-                            maxQ = quality;
-                            quality = (minQ + maxQ) / 2;
-                            dataUrl = canvas.toDataURL('image/jpeg', quality);
-                            bytes = Math.round((dataUrl.split(',')[1].length * 3) / 4);
-                            attempts++;
-                        }
-                        if (bytes > targetBytes) dataUrl = canvas.toDataURL('image/jpeg', 0.05); // 最低画質
-                    } else {
-                        dataUrl = canvas.toDataURL(`image/${targetFormat}`, targetFormat === 'jpeg' ? 0.9 : undefined);
-                    }
-
-                    const fileName = getOutputFileName(file.name, ext);
-                    const base64str = dataUrl.split(',')[1];
-                    const bytesResult = Math.round((base64str.length * 3) / 4);
-                    const fileSizeStr = bytesResult < 1024 * 1024 
-                        ? (bytesResult / 1024).toFixed(1) + ' KB' 
-                        : (bytesResult / (1024 * 1024)).toFixed(2) + ' MB';
-
-                    resolve({ 
-                        id: generateId(), 
-                        dataUrl, 
-                        fileName, 
-                        originalName: file.name, 
-                        fileSizeStr, 
-                        dimensionsStr: `${cWidth} × ${cHeight} px`,
-                        ext: ext
-                    });
                 };
-                img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('読込失敗: ' + file.name)); };
+                img.onerror = () => {
+                    URL.revokeObjectURL(url);
+                    reject(new Error('読込失敗: ' + file.name));
+                };
                 img.src = url;
             });
+        }
+
+        function isPdfFile(file) {
+            return file && (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'));
+        }
+
+        function getPdfOutputFileName(pageNumber) {
+            const ext = formatSelect.value === 'jpeg' ? '.jpg' : '.png';
+            const stem = (activePdfFile?.name || 'document.pdf').replace(/\.pdf$/i, '');
+            const digits = Math.max(3, String(activePdf?.numPages || 1).length);
+            return `${stem}_p${String(pageNumber).padStart(digits, '0')}${ext}`;
+        }
+
+        function resetConvertedResults() {
+            processedImages = [];
+            imageGrid.innerHTML = '';
+            commonNameInput.value = '';
+            resultArea.classList.add('hidden');
+        }
+
+        function resetPdfWorkspace() {
+            if (activePdf && typeof activePdf.destroy === 'function') {
+                try { activePdf.destroy(); } catch (error) {}
+            }
+            activePdf = null;
+            activePdfFile = null;
+            selectedPdfPages = new Set();
+            pdfPages.innerHTML = '';
+            pdfWorkspace.classList.add('hidden');
+            pdfProgress.classList.add('hidden');
+            pdfProgressBar.style.width = '0%';
+        }
+
+        function updatePdfSummary() {
+            if (!activePdf) return;
+            const count = selectedPdfPages.size;
+            const formatLabel = formatSelect.value === 'jpeg' ? 'JPG' : 'PNG';
+            const widthValue = parseInt(targetWidthInput.value);
+            const widthLabel = widthValue > 0 ? `幅 ${widthValue}px` : '幅 自動';
+            const ratioLabel = keepAspectCheckbox.checked ? '元の比率を維持' : '16:9';
+            const sizeValue = parseFloat(targetSizeInput.value);
+            const sizeLabel = formatSelect.value === 'jpeg' && sizeValue > 0 ? ` / 最大 ${sizeValue}KB` : '';
+
+            pdfSelectionCount.textContent = `${count} / ${activePdf.numPages}ページを選択`;
+            pdfOutputSummary.textContent = `${count}ページ → ${formatLabel} ${count}枚`;
+            pdfOutputDetail.textContent = `${widthLabel} / ${ratioLabel}${sizeLabel} / 完了後：個別DL + ZIP`;
+            convertPdfBtn.textContent = count > 0 ? `${count}ページを変換` : 'ページを選択してください';
+            convertPdfBtn.disabled = count === 0;
+            convertPdfBtn.classList.toggle('disabled-retro', count === 0);
+
+            pdfPages.querySelectorAll('[data-pdf-page]').forEach(card => {
+                const pageNumber = Number(card.dataset.pdfPage);
+                const selected = selectedPdfPages.has(pageNumber);
+                card.classList.toggle('is-selected', selected);
+                card.setAttribute('aria-pressed', String(selected));
+                const status = card.querySelector('.pdf-page-status');
+                if (status) status.textContent = selected ? '✓ 選択中' : '選択しない';
+            });
+        }
+
+        async function renderPdfThumbnail(pageNumber) {
+            const page = await activePdf.getPage(pageNumber);
+            const baseViewport = page.getViewport({ scale: 1 });
+            const scale = Math.min(0.4, 140 / baseViewport.width, 170 / baseViewport.height);
+            const viewport = page.getViewport({ scale: Math.max(scale, 0.12) });
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = Math.ceil(viewport.width);
+            canvas.height = Math.ceil(viewport.height);
+            await page.render({ canvasContext: context, viewport }).promise;
+            return canvas;
+        }
+
+        async function loadPdf(file) {
+            if (!window.pdfjsLib) throw new Error('PDF機能の読み込みに失敗しました。ページを再読み込みしてください。');
+
+            resetPdfWorkspace();
+            resetConvertedResults();
+            errorMessage.classList.add('hidden');
+            pdfWorkspace.classList.remove('hidden');
+            pdfFileName.textContent = file.name;
+            pdfFileInfo.textContent = 'PDFを読み込んでいます...';
+            pdfPages.innerHTML = '<div class="font-bold text-lg py-6 blink-retro">ページを解析中...</div>';
+            convertPdfBtn.disabled = true;
+            convertPdfBtn.classList.add('disabled-retro');
+
+            const data = new Uint8Array(await file.arrayBuffer());
+            const loadingTask = pdfjsLib.getDocument({ data });
+            activePdf = await loadingTask.promise;
+            activePdfFile = file;
+            selectedPdfPages = new Set(Array.from({ length: activePdf.numPages }, (_, i) => i + 1));
+            pdfFileInfo.textContent = `${activePdf.numPages}ページ / ${(file.size / 1024 / 1024).toFixed(1)} MB`;
+            pdfPages.innerHTML = '';
+
+            for (let pageNumber = 1; pageNumber <= activePdf.numPages; pageNumber++) {
+                const card = document.createElement('button');
+                card.type = 'button';
+                card.className = 'pdf-page-card is-selected';
+                card.dataset.pdfPage = pageNumber;
+                card.setAttribute('aria-pressed', 'true');
+                card.innerHTML = `
+                    <div class="pdf-page-preview"><span class="font-bold text-sm blink-retro">読込中</span></div>
+                    <div class="font-bold text-center py-2">PAGE ${String(pageNumber).padStart(2, '0')}</div>
+                    <div class="pdf-page-status">✓ 選択中</div>
+                `;
+                card.addEventListener('click', () => {
+                    if (selectedPdfPages.has(pageNumber)) selectedPdfPages.delete(pageNumber);
+                    else selectedPdfPages.add(pageNumber);
+                    updatePdfSummary();
+                });
+                pdfPages.appendChild(card);
+
+                try {
+                    const canvas = await renderPdfThumbnail(pageNumber);
+                    const preview = card.querySelector('.pdf-page-preview');
+                    preview.innerHTML = '';
+                    preview.appendChild(canvas);
+                } catch (error) {
+                    const preview = card.querySelector('.pdf-page-preview');
+                    preview.innerHTML = '<span class="font-bold text-fc-red text-sm">PREVIEW ERROR</span>';
+                }
+            }
+
+            updatePdfSummary();
+            pdfWorkspace.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        async function convertSelectedPdfPages() {
+            if (!activePdf || selectedPdfPages.size === 0) return;
+
+            const pages = Array.from(selectedPdfPages).sort((a, b) => a - b);
+            const originalButtonText = convertPdfBtn.textContent;
+            resetConvertedResults();
+            errorMessage.classList.add('hidden');
+            pdfProgress.classList.remove('hidden');
+            pdfProgressBar.style.width = '0%';
+            convertPdfBtn.disabled = true;
+            convertPdfBtn.classList.add('disabled-retro');
+
+            try {
+                for (let index = 0; index < pages.length; index++) {
+                    const pageNumber = pages[index];
+                    pdfProgressLabel.textContent = `${pageNumber}ページ目を変換しています`;
+                    pdfProgressCount.textContent = `${index} / ${pages.length}`;
+                    pdfProgressBar.style.width = `${Math.round((index / pages.length) * 100)}%`;
+
+                    const page = await activePdf.getPage(pageNumber);
+                    const baseViewport = page.getViewport({ scale: 1 });
+                    const requestedWidth = parseInt(targetWidthInput.value);
+                    const desiredScale = requestedWidth > 0
+                        ? Math.max(1, requestedWidth / baseViewport.width)
+                        : 2;
+                    const renderScale = Math.min(desiredScale, 4);
+                    const viewport = page.getViewport({ scale: renderScale });
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d', { alpha: true });
+                    canvas.width = Math.ceil(viewport.width);
+                    canvas.height = Math.ceil(viewport.height);
+
+                    await page.render({ canvasContext: context, viewport }).promise;
+
+                    const originalLabel = `${activePdfFile.name} / ${pageNumber}ページ目`;
+                    const result = convertVisualSource(canvas, originalLabel, getPdfOutputFileName(pageNumber));
+                    processedImages.push(result);
+                    addImageCard(result);
+
+                    canvas.width = 1;
+                    canvas.height = 1;
+
+                    const completed = index + 1;
+                    pdfProgressCount.textContent = `${completed} / ${pages.length}`;
+                    pdfProgressBar.style.width = `${Math.round((completed / pages.length) * 100)}%`;
+                    await new Promise(resolve => requestAnimationFrame(resolve));
+                }
+
+                resultArea.classList.remove('hidden');
+                pdfProgressLabel.textContent = '変換完了';
+                triggerHitFlash();
+                resultArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } catch (error) {
+                errorMessage.textContent = error.message || 'PDFの変換に失敗しました';
+                errorMessage.classList.remove('hidden');
+            } finally {
+                convertPdfBtn.disabled = selectedPdfPages.size === 0;
+                convertPdfBtn.classList.toggle('disabled-retro', selectedPdfPages.size === 0);
+                convertPdfBtn.textContent = selectedPdfPages.size > 0
+                    ? `${selectedPdfPages.size}ページを変換`
+                    : originalButtonText;
+            }
         }
 
         // --- DOM生成 ---
@@ -704,13 +1030,34 @@
 
         // --- イベントリスナー ---
         async function handleFiles(files) {
-            if (files.length === 0) return;
+            if (!files || files.length === 0) return;
             triggerHitFlash();
             errorMessage.classList.add('hidden');
+
+            const fileList = Array.from(files);
+            const pdfFiles = fileList.filter(isPdfFile);
+
+            if (pdfFiles.length > 0) {
+                if (fileList.length !== 1) {
+                    errorMessage.textContent = 'PDFは1ファイルずつ選んでください。画像との同時投入はできません。';
+                    errorMessage.classList.remove('hidden');
+                    return;
+                }
+                try {
+                    await loadPdf(pdfFiles[0]);
+                } catch (error) {
+                    resetPdfWorkspace();
+                    errorMessage.textContent = error.message || 'PDFの読み込みに失敗しました';
+                    errorMessage.classList.remove('hidden');
+                }
+                return;
+            }
+
+            resetPdfWorkspace();
             resultArea.classList.remove('hidden');
 
             const errors = [];
-            for (const file of files) {
+            for (const file of fileList) {
                 try {
                     const result = await processImage(file);
                     processedImages.push(result);
@@ -737,6 +1084,30 @@
         });
 
         fileInput.addEventListener('change', (e) => { handleFiles(e.target.files); fileInput.value = ''; });
+
+        pdfSelectAllBtn.addEventListener('click', function() {
+            if (!activePdf) return;
+            triggerShake(this);
+            selectedPdfPages = new Set(Array.from({ length: activePdf.numPages }, (_, i) => i + 1));
+            updatePdfSummary();
+        });
+
+        pdfClearSelectionBtn.addEventListener('click', function() {
+            if (!activePdf) return;
+            triggerShake(this);
+            selectedPdfPages.clear();
+            updatePdfSummary();
+        });
+
+        convertPdfBtn.addEventListener('click', function() {
+            triggerShake(this);
+            convertSelectedPdfPages();
+        });
+
+        formatSelect.addEventListener('change', updatePdfSummary);
+        targetWidthInput.addEventListener('input', updatePdfSummary);
+        targetSizeInput.addEventListener('input', updatePdfSummary);
+        keepAspectCheckbox.addEventListener('change', updatePdfSummary);
 
         renameBtn.addEventListener('click', function() {
             triggerShake(this);
@@ -787,10 +1158,8 @@
 
         clearBtn.addEventListener('click', function() {
             triggerShake(this);
-            processedImages = [];
-            imageGrid.innerHTML = '';
-            commonNameInput.value = '';
-            resultArea.classList.add('hidden');
+            resetConvertedResults();
+            resetPdfWorkspace();
             errorMessage.classList.add('hidden');
         });
 
